@@ -8,14 +8,6 @@ namespace qiniu
 {
     namespace largefile
     {
-
-        struct MMapOption
-        {
-            int32_t max_mmap_size; // 3M
-            int32_t first_mmap_size; // 4k
-            int32_t per_mmap_size; // 4k
-        };
-
         // 类的功能: 指定一个文件映射到内存, 同步,权限...
 
         class MMapFile

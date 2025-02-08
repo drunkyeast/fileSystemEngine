@@ -1,4 +1,5 @@
 ## fileSystemEngine  淘宝文件系统引擎,小文件存储优化问题.
+TFS: Taobao File System
 
 
 shift+alt+f vscode中格式化代码规范
@@ -12,3 +13,6 @@ git push -u origin main 这个-u参数它会将本地分支与远程分支关联
 vim中: $可移动到末尾, `:goto 4000` 移动到4000byte的位置
 
 统计.h.cpp文件总行数: `apt-get install silversearcher-ag` + `ag '' --cpp -l | xargs wc -l`
+
+## 设计类图
+这个可以了解, 不用掌握. Martin写代码还行, 讲知识点就是依托答辩.
