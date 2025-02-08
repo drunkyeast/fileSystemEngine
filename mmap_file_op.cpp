@@ -95,7 +95,7 @@ namespace qiniu
 
 
             // case2: 内存没有映射或是要读取的数据映射不全. 
-            // ?为什么? 没有映射为什么还要读取pread????  28原则, 这上面的一些细节不去深究, 有些代码不理解的也直接跳过吧.
+            // 这种还是要read, 从磁盘读取而不是从内存读取了, 只是更慢了点.
             return FileOperation::pread_file(buf, size, offset);
         }
 
@@ -124,7 +124,7 @@ namespace qiniu
             }
 
             // case2: 内存没有映射或者映射不全
-            // 不理解
+            // 后面梳理了一下项目背景和代码, 就理解了. Martin就是废话太多,不讲关键.
             return FileOperation::pwrite_file(buf, size, offset);
 
         }

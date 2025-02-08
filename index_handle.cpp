@@ -39,20 +39,20 @@ namespace qiniu
                 return EXIT_INDEX_ALREADY_LOADED_ERROR;
             }
 
-            int64_t file_size = file_op_->get_file_size();
+            int64_t file_size = file_op_->get_file_size(); // 首先文件并没有创建, 第一次open时才会创建一个空的.
             int ret = 0;
             if (file_size < 0)
             {
                 return TFS_ERROR;
             }
-            else if (file_size == 0)
+            else if (file_size == 0) // 一开始就是0啊
             {
-                IndexHeader i_header;
+                IndexHeader i_header; // IndexHandle的块头信息, BlockInfo+哈希桶等, 不包括MetaInfo.
                 i_header.block_info_.block_id_ = logic_block_id;
                 i_header.block_info_.seq_no_ = 1;
                 i_header.bucket_size_ = bucket_size;
 
-                i_header.index_file_size_ = sizeof(IndexHeader) + bucket_size * sizeof(int32_t);
+                i_header.index_file_size_ = sizeof(IndexHeader) + bucket_size * sizeof(int32_t); //32位系统??
 
                 // index header + total buckets
                 char* init_data = new char[i_header.index_file_size_];
@@ -158,7 +158,7 @@ namespace qiniu
             // check block size
             if (logic_block_id != block_info()->block_id_)
             {
-                fprintf(stderr, "martin 讲得跟坨屎一样, 讲得真的垃圾.\n");
+                fprintf(stderr, "martin 讲得跟坨屎一样, 讲得真的垃圾, 代码也是一坨屎.\n");
                 return EXIT_BLOCKID_CONFLICT_ERROR;
             }
 
