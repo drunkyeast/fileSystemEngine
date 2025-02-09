@@ -30,3 +30,11 @@ vim中: $可移动到末尾, `:goto 4000` 移动到4000byte的位置
 
 ## github提交问题
 这里没写.gitignore, 主块文件不需要上传啊, 其实只需要上传.h和.cpp, 我写一些.gitignore吧.
+```
+git rm -r --cached .
+git add .
+git status
+或者
+git rm -r --cached index/ mainblock/ .vscode/
+git status
+```
