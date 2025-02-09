@@ -72,6 +72,8 @@ namespace qiniu
             }
 
             int32_t write_segment_meta(const uint64_t key, MetaInfo& meta);
+            int32_t read_segment_meta(const uint64_t key, MetaInfo& meta);
+            int32_t delete_segment_meta(const uint64_t key, MetaInfo& meta);
 
             int32_t hash_find(const uint64_t key, int32_t& current_offset, int32_t& previous_offset);
             int32_t hash_insert(const uint64_t key, int32_t previous_offset, MetaInfo& meta);

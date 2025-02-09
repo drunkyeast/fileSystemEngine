@@ -218,7 +218,7 @@ namespace qiniu
             int32_t previous_offset = 0;
 
             int ret = hash_find(key, current_offset, previous_offset);
-            if (TFS_SUCCESS == ret)
+            if (TFS_SUCCESS == ret) // 我们把meta写入到这个新块中, 但这个块居然存在东西(TFS_SUCCESS), 所以错误.
             {
                 return EXIT_META_UNEXPECTE_FOUND_ERROR;
             }
@@ -231,6 +231,75 @@ namespace qiniu
             ret = hash_insert(key, previous_offset, meta);
 
             return ret;
+        }
+
+        int32_t IndexHandle::read_segment_meta(const uint64_t key, MetaInfo& meta)
+        {
+            int32_t current_offset = 0;
+            int32_t previous_offset = 0;
+            // int32_t slot = static_cast<int32_t>(key) % bucket_size();
+
+            int ret = hash_find(key, current_offset, previous_offset);
+            if (TFS_SUCCESS == ret)
+            {
+                ret = file_op_->pread_file(reinterpret_cast<char*>(&meta), sizeof(meta), current_offset);
+                return ret;
+            }
+
+            return ret;
+        }
+
+        int32_t IndexHandle::delete_segment_meta(const uint64_t key, MetaInfo& meta)
+        {
+            int32_t current_offset = 0;
+            int32_t previous_offset = 0;
+            int ret = hash_find(key, current_offset, previous_offset);
+            if (TFS_SUCCESS != ret) // 如果没找到
+            {
+                printf("Delete Failed. meta not found!!\n");
+                return ret;
+            }
+            // 找到了, 可以删除这个meta
+            MetaInfo meta_info;
+
+            ret = file_op_->pread_file(reinterpret_cast<char*>(&meta), sizeof(meta), current_offset);
+            if (TFS_SUCCESS != ret)
+            {
+                return ret;
+            }
+
+            int32_t next_pos = meta_info.get_next_meta_offset();
+
+            if (previous_offset == 0) // 当前meta节点时首结点
+            {
+                int32_t slot = static_cast<uint32_t>(key) % bucket_size();
+                bucket_slot()[slot] = next_pos; // 修改首结点的next_pos
+
+            }
+            else
+            {
+                MetaInfo pre_meta_info;
+                ret = file_op_->pread_file(reinterpret_cast<char*>(&pre_meta_info), sizeof(pre_meta_info), previous_offset);
+                if (TFS_SUCCESS != ret)
+                {
+                    return ret;
+                }
+                pre_meta_info.set_next_meta_offset(next_pos);
+
+                ret = file_op_->pwrite_file(reinterpret_cast<char*>(&pre_meta_info), sizeof(pre_meta_info), previous_offset);
+                if (TFS_SUCCESS != ret)
+                {
+                    return ret;
+                }
+
+                update_block_info(C_OPER_DELETE, meta_info.get_size());
+                // 除了让上个结点指向下一个节点外, 还要将这个delete的结点放到可重用链表结点.... 
+                // 注意这是删除handler部分, 而主块部分的文件在删除文件数量达到20%时, 且在晚上时整理磁盘.
+
+            }
+
+            return TFS_SUCCESS;
+
         }
 
         int IndexHandle::update_block_info(const OperType oper_type, const uint32_t modify_size)
@@ -246,6 +315,15 @@ namespace qiniu
                 ++block_info()->file_count_;
                 ++block_info()->seq_no_;
                 block_info()->size_t_ += modify_size;
+            }
+            else if (oper_type == C_OPER_DELETE)
+            {
+                ++block_info()->version_; // 它这么定义的
+                --block_info()->file_count_;
+                block_info()->seq_no_; // 不变
+                block_info()->size_t_ -= modify_size;
+                ++block_info()->del_file_count_;
+                block_info()->del_size_ += modify_size;
             }
 
             if (debug)
