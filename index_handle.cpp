@@ -174,7 +174,7 @@ namespace qiniu
 
             if (debug)
             {
-                printf("load blockid %d index successful. ....", logic_block_id);
+                printf("load blockid %d index successful. ....\n", logic_block_id);
             }
 
             return TFS_SUCCESS;
@@ -211,6 +211,140 @@ namespace qiniu
             }
             return ret;
         }
+
+        int32_t IndexHandle::write_segment_meta(const uint64_t key, MetaInfo& meta)
+        {
+            int32_t current_offset = 0;
+            int32_t previous_offset = 0;
+
+            int ret = hash_find(key, current_offset, previous_offset);
+            if (TFS_SUCCESS == ret)
+            {
+                return EXIT_META_UNEXPECTE_FOUND_ERROR;
+            }
+            else if (EXIT_META_NOT_FOUND_ERROR != ret)
+            {
+                return ret;
+            }
+
+            // 不存在就写入mete到文件哈希表中 hash_insert(key, previous_offset, meta);
+            ret = hash_insert(key, previous_offset, meta);
+
+            return ret;
+        }
+
+        int IndexHandle::update_block_info(const OperType oper_type, const uint32_t modify_size)
+        {
+            if (block_info()->block_id_ == 0)
+            {
+                return EXIT_BLOCKID_ZERO_ERROR;
+            }
+
+            if (oper_type == C_OPER_INSERT)
+            {
+                ++block_info()->version_;
+                ++block_info()->file_count_;
+                ++block_info()->seq_no_;
+                block_info()->size_t_ += modify_size;
+            }
+
+            if (debug)
+            {
+                printf("update_block_info : modify_size: %d......\n", modify_size);
+            }
+
+            return TFS_SUCCESS;
+        }
+
+        int32_t IndexHandle::hash_find(const uint64_t key, int32_t& current_offset, int32_t& previous_offset)
+        {
+            int ret = TFS_SUCCESS;
+            MetaInfo meta_info;
+
+            current_offset = 0;
+            previous_offset = 0;
+
+            // 1.确定key存放再桶(slot)的位置.
+            int32_t slot = static_cast<uint32_t>(key) % bucket_size(); // 文件编号 % 桶大小. 逆天强转, TFS源码就有这问题??
+
+            // 2.读取桶首节点存储的第一个节点的偏移量, 如果偏移量为零, 直接返回EXIT_META_NOT_FOUND_ERROR
+            // 3.根据偏移量读取存储的metainfo
+            // 4.与key进行比较, 相等就设置current_offset和previous_offset并返回TFS_SUCCESS, 否则继续执行.
+            // 5.从metainfo中取得下一个节点在文件中的偏移量. 如果偏移量为零直接返回EXIT_META_NOT_FOUND_ERROR(表示链表结尾?)
+            int32_t pos = bucket_slot()[slot];
+
+            for (;pos != 0;)
+            {
+                ret = file_op_->pread_file(reinterpret_cast<char*>(&meta_info), sizeof(MetaInfo), pos);
+                if (TFS_SUCCESS != ret)
+                {
+                    perror("pread_file func error");
+                    return ret;
+                }
+
+                if (hash_compare(key, meta_info.get_key()))
+                {
+                    current_offset = pos;
+                    return TFS_SUCCESS;
+                }
+
+                previous_offset = pos;
+                pos = meta_info.get_next_meta_offset();
+            }
+            return EXIT_META_NOT_FOUND_ERROR;
+
+        }
+
+        int32_t IndexHandle::hash_insert(const uint64_t key, int32_t previous_offset, MetaInfo& meta)
+        {
+            int ret = TFS_SUCCESS;
+            MetaInfo tmp_meta_info;
+
+
+            // 1. 确定key存放的桶(slot)的位置
+            int32_t slot = static_cast<uint32_t>(key) % bucket_size();
+
+            // 2. 确定meta节点存储在文件中的偏移量
+            int32_t current_offset = index_header()->index_file_size_;
+            index_header()->index_file_size_ += sizeof(MetaInfo);
+
+            // 3. 将meta节点写入索引文件中
+            meta.set_next_meta_offset(0);
+            ret = file_op_->pwrite_file(reinterpret_cast<const char*>(&meta), sizeof(MetaInfo), current_offset);
+            if (TFS_SUCCESS != ret)
+            {
+                index_header()->index_file_size_ -= sizeof(MetaInfo); // 写失败.
+                return ret;
+            }
+
+            // 4. 将meta节点插入到哈希链表中
+            if (0 != previous_offset)
+            {
+                ret = file_op_->pread_file(reinterpret_cast<char*>(&tmp_meta_info), sizeof(MetaInfo), previous_offset);
+                if (TFS_SUCCESS != ret)
+                {
+                    index_header()->index_file_size_ -= sizeof(MetaInfo);
+                    return ret;
+                }
+                tmp_meta_info.set_next_meta_offset(current_offset);
+
+                ret = file_op_->pwrite_file(reinterpret_cast<char*>(&tmp_meta_info), sizeof(MetaInfo), previous_offset);
+                if (TFS_SUCCESS != ret)
+                {
+                    index_header()->index_file_size_ -= sizeof(MetaInfo);
+                    return ret;
+                }
+            }
+            else // 不存在前一个节点的情况
+            {
+                bucket_slot()[slot] = current_offset;
+            }
+
+            return TFS_SUCCESS;
+        }
+
+
+
 
     }
 
