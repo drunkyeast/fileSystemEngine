@@ -26,22 +26,9 @@ int main(void)
         exit(1);
     }
 
-    // 1.生成主块文件
-    std::stringstream tmp_stream;
-    tmp_stream << "." << largefile::MAINBLOCK_DIR_PREFIX << block_id;
-    tmp_stream >> mainblock_path;
 
-    largefile::FileOperation* mainblock = new largefile::FileOperation(mainblock_path, O_RDWR | O_LARGEFILE | O_CREAT);
 
-    ret = mainblock->ftruncate_file(main_blocksize);
-    if (ret != 0)
-    {
-        fprintf(stderr, "create main block %s failed. reason: %s\n", mainblock_path.c_str(), strerror(errno));
-        delete mainblock;
-        exit(1);
-    }
-
-    // 2.创建索引文件
+    // 1.创建索引文件
     largefile::IndexHandle* index_handle = new largefile::IndexHandle(".", block_id); // 索引文件句柄
 
     if (debug)
@@ -54,12 +41,33 @@ int main(void)
     if (ret != largefile::TFS_SUCCESS)
     {
         fprintf(stderr, "create index %d failed", block_id);
-        delete mainblock;
         delete index_handle;
         exit(1);
     }
 
+    // 2.生成主块文件
+    std::stringstream tmp_stream;
+    tmp_stream << "." << largefile::MAINBLOCK_DIR_PREFIX << block_id;
+    tmp_stream >> mainblock_path;
+
+    largefile::FileOperation* mainblock = new largefile::FileOperation(mainblock_path, O_RDWR | O_LARGEFILE | O_CREAT);
+
+    ret = mainblock->ftruncate_file(main_blocksize);
+    if (ret != 0)
+    {
+        fprintf(stderr, "create main block %s failed. reason: %s\n", mainblock_path.c_str(), strerror(errno));
+        delete mainblock;
+        index_handle->remove(block_id);
+        exit(1);
+    }
+
+
     // 其他操作
+    mainblock->close_file();
+    index_handle->flush();
+
+    delete mainblock;
+    delete index_handle;
 
     return 0;
 }

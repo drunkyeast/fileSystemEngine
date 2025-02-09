@@ -181,6 +181,37 @@ namespace qiniu
 
         }
 
+        int IndexHandle::remove(const uint32_t logic_block_id)
+        {
+            if (is_load_)
+            {
+                if (logic_block_id != block_info()->block_id_)
+                {
+                    fprintf(stderr, "remove func error\n");
+                    return EXIT_BLOCKID_CONFLICT_ERROR;
+                }
+            }
+
+            int ret = file_op_->munmap_file();
+            if (TFS_SUCCESS != ret)
+            {
+                return ret;
+            }
+
+            ret = file_op_->unlink_file();
+            return ret;
+        }
+
+        int IndexHandle::flush()
+        {
+            int ret = file_op_->flush_file();
+            if (TFS_SUCCESS != ret)
+            {
+                fprintf(stderr, "IndexHandle::flush func error\n");
+            }
+            return ret;
+        }
+
     }
 
 

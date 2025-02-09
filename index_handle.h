@@ -17,16 +17,11 @@ namespace qiniu
                 memset(this, 0, sizeof(IndexHeader));
             }
 
-
-
             BlockInfo block_info_; // meta block info
             int32_t bucket_size_; // hash bucket size
             int32_t data_file_offset_; // offset to write next data in block
             int32_t index_file_size_; // offset after: index_header + all buckets
             int32_t free_head_offset_; // free meta node list, for reuse
-
-
-
 
         };
 
@@ -38,6 +33,10 @@ namespace qiniu
 
             int create(const uint32_t logic_block_id, const int32_t bucket_size, const MMapOption map_option);
             int load(const uint32_t logic_block_id, const int32_t bucket_size, const MMapOption map_option);
+
+            // remove index: unmma and unlink;
+            int remove(const uint32_t logic_block_id);
+            int flush();
 
             IndexHeader* index_header()
             {
